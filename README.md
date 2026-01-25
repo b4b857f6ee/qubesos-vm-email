@@ -4,3 +4,5 @@ Only working for
 - gmail
 - hotmail
 - protonmail
+
+no drive acces, no calendar, etc...
