@@ -221,11 +221,13 @@ echo ""
 echo -e "${YELLOW}[NOTE] La résolution DNS de chaque domaine peut prendre quelques secondes...${NC}"
 echo ""
 
-# Réinitialiser les règles firewall
-qvm-firewall "$VM_NAME" reset
-
-# Supprimer la règle par défaut "accept all" (index 0)
-qvm-firewall "$VM_NAME" del 0 2>/dev/null || true
+# Supprimer toutes les règles existantes et la règle par défaut "accept all"
+# On supprime la règle 0 en boucle jusqu'à ce qu'il n'y en ait plus
+echo -e "${CYAN}  Suppression des règles existantes...${NC}"
+while qvm-firewall "$VM_NAME" del --rule-no 0 2>/dev/null; do
+    echo -n "."
+done
+echo " OK"
 
 # Compteur de règles
 RULE_COUNT=0
