@@ -2,13 +2,11 @@
 #
 # create-email-vm.sh
 # Script pour créer une VM email webmail sur QubesOS 4.3
-# Avec firewall restrictif par domaine
+# Avec firewall restrictif par domaine (sans wildcards)
 # À exécuter depuis dom0
 #
 # Usage: ./create-email-vm.sh
 #
-
-# PAS de set -e car ((0++)) retourne une erreur et arrête le script !
 
 # Configuration
 VM_NAME="email"
@@ -26,77 +24,44 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Domaines nécessaires pour chaque service
-# Gmail
+# Domaines essentiels pour chaque service (sans wildcards)
+# Gmail / Google - domaines minimaux nécessaires
 GMAIL_DOMAINS=(
     "mail.google.com"
     "accounts.google.com"
     "www.google.com"
-    "google.com"
-    "googleapis.com"
-    "www.googleapis.com"
-    "gstatic.com"
-    "www.gstatic.com"
-    "googleusercontent.com"
     "ssl.gstatic.com"
+    "www.gstatic.com"
     "fonts.gstatic.com"
     "fonts.googleapis.com"
-    "accounts.youtube.com"
-    "play.google.com"
-    "ogs.google.com"
-    "clients1.google.com"
-    "clients2.google.com"
-    "clients3.google.com"
-    "clients4.google.com"
-    "clients5.google.com"
-    "clients6.google.com"
-    "signaler-pa.clients6.google.com"
+    "apis.google.com"
+    "www.googleapis.com"
     "lh3.googleusercontent.com"
-    "mail-attachment.googleusercontent.com"
+    "play.google.com"
 )
 
-# Outlook / Microsoft
+# Outlook / Microsoft - domaines minimaux nécessaires
 OUTLOOK_DOMAINS=(
     "outlook.live.com"
-    "outlook.office.com"
-    "outlook.office365.com"
-    "login.microsoftonline.com"
     "login.live.com"
+    "login.microsoftonline.com"
     "account.live.com"
-    "microsoft.com"
-    "www.microsoft.com"
-    "office.com"
-    "www.office.com"
-    "live.com"
-    "www.live.com"
-    "microsoftonline.com"
+    "outlook.office365.com"
+    "outlook.office.com"
     "aadcdn.msauth.net"
     "aadcdn.msftauth.net"
     "logincdn.msauth.net"
-    "login.windows.net"
-    "msauth.net"
-    "msftauth.net"
-    "r.office.microsoft.com"
-    "substrate.office.com"
     "res.cdn.office.net"
-    "c.s-microsoft.com"
-    "i.s-microsoft.com"
-    "blob.core.windows.net"
-    "attachments.office.net"
 )
 
-# ProtonMail
+# ProtonMail - domaines minimaux nécessaires
 PROTONMAIL_DOMAINS=(
-    "proton.me"
     "mail.proton.me"
     "account.proton.me"
-    "www.proton.me"
-    "protonmail.com"
-    "www.protonmail.com"
+    "proton.me"
     "mail.protonmail.com"
-    "api.protonmail.ch"
-    "protonmail.ch"
     "account.protonmail.com"
+    "api.protonmail.ch"
 )
 
 echo -e "${YELLOW}========================================${NC}"
@@ -253,6 +218,8 @@ qvm-prefs "$VM_NAME" vcpus "$VCPUS"
 # Configurer le firewall restrictif
 echo -e "${GREEN}[5/7] Configuration du firewall restrictif par domaine...${NC}"
 echo ""
+echo -e "${YELLOW}[NOTE] La résolution DNS de chaque domaine peut prendre quelques secondes...${NC}"
+echo ""
 
 # Réinitialiser les règles firewall
 qvm-firewall "$VM_NAME" reset
@@ -264,17 +231,35 @@ qvm-firewall "$VM_NAME" del 0 2>/dev/null || true
 RULE_COUNT=0
 RULE_ERRORS=0
 
+# Fonction pour ajouter une règle avec retry
+add_rule_with_retry() {
+    local domain="$1"
+    local max_retries=3
+    local retry=0
+    
+    while [ $retry -lt $max_retries ]; do
+        if qvm-firewall "$VM_NAME" add accept dsthost="$domain" dstports=443 proto=tcp 2>/dev/null; then
+            return 0
+        fi
+        retry=$((retry + 1))
+        sleep 2
+    done
+    return 1
+}
+
 # Ajouter les règles pour Gmail
 if $ENABLE_GMAIL; then
     echo -e "${CYAN}  Ajout des règles Gmail (${#GMAIL_DOMAINS[@]} domaines)...${NC}"
     for domain in "${GMAIL_DOMAINS[@]}"; do
-        if qvm-firewall "$VM_NAME" add accept dsthost="$domain" dstports=443 proto=tcp 2>/dev/null; then
-            echo -e "    ${GREEN}✓${NC} $domain"
+        echo -n "    $domain ... "
+        if add_rule_with_retry "$domain"; then
+            echo -e "${GREEN}✓${NC}"
             RULE_COUNT=$((RULE_COUNT + 1))
         else
-            echo -e "    ${RED}✗${NC} $domain (erreur)"
+            echo -e "${RED}✗${NC}"
             RULE_ERRORS=$((RULE_ERRORS + 1))
         fi
+        sleep 1
     done
     echo ""
 fi
@@ -283,13 +268,15 @@ fi
 if $ENABLE_OUTLOOK; then
     echo -e "${CYAN}  Ajout des règles Outlook (${#OUTLOOK_DOMAINS[@]} domaines)...${NC}"
     for domain in "${OUTLOOK_DOMAINS[@]}"; do
-        if qvm-firewall "$VM_NAME" add accept dsthost="$domain" dstports=443 proto=tcp 2>/dev/null; then
-            echo -e "    ${GREEN}✓${NC} $domain"
+        echo -n "    $domain ... "
+        if add_rule_with_retry "$domain"; then
+            echo -e "${GREEN}✓${NC}"
             RULE_COUNT=$((RULE_COUNT + 1))
         else
-            echo -e "    ${RED}✗${NC} $domain (erreur)"
+            echo -e "${RED}✗${NC}"
             RULE_ERRORS=$((RULE_ERRORS + 1))
         fi
+        sleep 1
     done
     echo ""
 fi
@@ -298,30 +285,34 @@ fi
 if $ENABLE_PROTONMAIL; then
     echo -e "${CYAN}  Ajout des règles ProtonMail (${#PROTONMAIL_DOMAINS[@]} domaines)...${NC}"
     for domain in "${PROTONMAIL_DOMAINS[@]}"; do
-        if qvm-firewall "$VM_NAME" add accept dsthost="$domain" dstports=443 proto=tcp 2>/dev/null; then
-            echo -e "    ${GREEN}✓${NC} $domain"
+        echo -n "    $domain ... "
+        if add_rule_with_retry "$domain"; then
+            echo -e "${GREEN}✓${NC}"
             RULE_COUNT=$((RULE_COUNT + 1))
         else
-            echo -e "    ${RED}✗${NC} $domain (erreur)"
+            echo -e "${RED}✗${NC}"
             RULE_ERRORS=$((RULE_ERRORS + 1))
         fi
+        sleep 1
     done
     echo ""
 fi
 
 # Règle finale : bloquer tout le reste
 echo -e "${CYAN}  Ajout de la règle de blocage finale...${NC}"
+echo -n "    drop ... "
 if qvm-firewall "$VM_NAME" add drop 2>/dev/null; then
-    echo -e "    ${GREEN}✓${NC} Règle DROP ajoutée"
+    echo -e "${GREEN}✓${NC}"
     RULE_COUNT=$((RULE_COUNT + 1))
 else
-    echo -e "    ${RED}✗${NC} Erreur règle DROP"
+    echo -e "${RED}✗${NC}"
 fi
 
 echo ""
 echo -e "${GREEN}  Total : $RULE_COUNT règles configurées${NC}"
 if [[ $RULE_ERRORS -gt 0 ]]; then
-    echo -e "${YELLOW}  Attention : $RULE_ERRORS règles en erreur${NC}"
+    echo -e "${YELLOW}  Attention : $RULE_ERRORS règles en erreur (domaines non résolus)${NC}"
+    echo -e "${YELLOW}  Ces domaines pourront être ajoutés manuellement plus tard si nécessaire${NC}"
 fi
 
 # Afficher les règles configurées
@@ -358,9 +349,15 @@ $ENABLE_OUTLOOK && echo "  ✓ Outlook (${#OUTLOOK_DOMAINS[@]} domaines)"
 $ENABLE_PROTONMAIL && echo "  ✓ ProtonMail (${#PROTONMAIL_DOMAINS[@]} domaines)"
 echo ""
 echo -e "${YELLOW}Firewall :${NC}"
-echo "  - Seuls les domaines des services sélectionnés sont autorisés"
-echo "  - Uniquement le port 443 (HTTPS)"
+echo "  - Seuls les domaines listés sont autorisés (port 443)"
 echo "  - Tout le reste est bloqué"
+echo ""
+echo -e "${RED}IMPORTANT :${NC}"
+echo "  Si un service ne fonctionne pas complètement, il peut manquer"
+echo "  des domaines. Utilisez les outils de développement du navigateur"
+echo "  (F12 > Network) pour identifier les domaines bloqués, puis ajoutez-les :"
+echo ""
+echo "  qvm-firewall $VM_NAME add accept dsthost=DOMAINE dstports=443 proto=tcp"
 echo ""
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}   La VM '$VM_NAME' a été créée !       ${NC}"
@@ -369,16 +366,8 @@ echo ""
 echo "Pour lancer Firefox dans la VM :"
 echo "  qvm-run $VM_NAME firefox"
 echo ""
-echo "Ou depuis le menu Qubes : Applications > $VM_NAME > Firefox"
-echo ""
 echo "URLs des services :"
 $ENABLE_GMAIL && echo "  - Gmail      : https://mail.google.com"
 $ENABLE_OUTLOOK && echo "  - Outlook    : https://outlook.live.com"
 $ENABLE_PROTONMAIL && echo "  - ProtonMail : https://mail.proton.me"
-echo ""
-echo "Pour voir les règles firewall :"
-echo "  qvm-firewall $VM_NAME list"
-echo ""
-echo "Pour ajouter un domaine ultérieurement :"
-echo "  qvm-firewall $VM_NAME add accept dsthost=example.com dstports=443 proto=tcp"
 echo ""
