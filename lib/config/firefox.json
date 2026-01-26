@@ -1,0 +1,42 @@
+{
+    "policies": {
+        "DNSOverHTTPS": {
+            "Enabled": false,
+            "Locked": true
+        },
+        "DisableTelemetry": true,
+        "DisableFirefoxStudies": true,
+        "DisablePocket": true,
+        "DisableFirefoxAccounts": false,
+        "Preferences": {
+            "network.trr.mode": {
+                "Value": 5,
+                "Status": "locked"
+            },
+            "network.trr.uri": {
+                "Value": "",
+                "Status": "locked"
+            },
+            "network.trr.bootstrapAddress": {
+                "Value": "",
+                "Status": "locked"
+            },
+            "network.trr.custom_uri": {
+                "Value": "",
+                "Status": "locked"
+            },
+            "doh-rollout.enabled": {
+                "Value": false,
+                "Status": "locked"
+            },
+            "doh-rollout.disable-heuristics": {
+                "Value": true,
+                "Status": "locked"
+            },
+            "doh-rollout.skipHeuristicsCheck": {
+                "Value": true,
+                "Status": "locked"
+            }
+        }
+    }
+}
