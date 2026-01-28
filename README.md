@@ -1,283 +1,144 @@
-# QubesOS DNS Filter
+# QubesOS DNS Filter v2.0
 
-A modular DNS filtering solution for QubesOS that restricts network access to whitelisted domains only. Perfect for creating isolated VMs dedicated to specific tasks like email or cloud storage.
+DNS filtering for QubesOS with strict network compartmentalization. Each VM can only access whitelisted domains.
 
 ## Features
 
-- **Local DNS filtering** - Each VM runs its own dnsmasq instance with a whitelist
-- **DoH blocking** - Prevents DNS-over-HTTPS bypass (Firefox policies + DNS blocking)
-- **Immutable configs** - All configurations are protected with `chattr +i`
-- **DispVM support** - Create disposable VMs that reset on shutdown
-- **Modular design** - Easy to customize and extend with new profiles
-- **Interactive setup** - Numbered menus, multi-select cleanup, no manual typing
-- **Multi-language support** - Works with localized desktop folders (Bureau, Desktop, Escritorio, etc.)
+- **14 pre-configured profiles** - Email, Banking, Shopping, Social, Media, and more
+- **French services included** - Banques FR, impôts, CAF, SNCF, presse française...
+- **Local DNS filtering** - Each VM runs dnsmasq with whitelist
+- **DoH blocking** - Firefox policies + DNS blocking
+- **Immutable configs** - Protected with `chattr +i`
+- **DispVM & AppVM support**
+- **Multi-language** - Works with Bureau, Desktop, Escritorio...
 
-## Architecture
+## Available Profiles
 
-```
-┌─────────────────────────────────────────┐
-│              QubesOS dom0               │
-└─────────────────────────────────────────┘
-                    │
-    ┌───────────────┼───────────────┐
-    ▼               ▼               ▼
-┌────────┐    ┌──────────┐    ┌──────────┐
-│ email  │    │  drive   │    │  custom  │
-│  VM    │    │   VM     │    │   VM     │
-├────────┤    ├──────────┤    ├──────────┤
-│dnsmasq │    │ dnsmasq  │    │ dnsmasq  │
-│127.0.0.1│   │127.0.0.1 │    │127.0.0.1 │
-├────────┤    ├──────────┤    ├──────────┤
-│Gmail   │    │G. Drive  │    │ Your     │
-│Outlook │    │OneDrive  │    │ domains  │
-│Proton  │    │Dropbox   │    │          │
-└────────┘    └──────────┘    └──────────┘
-```
+| Profile | Services |
+|---------|----------|
+| **email** | Gmail, Outlook, ProtonMail |
+| **social** | Facebook, Instagram, Twitter, LinkedIn, Discord, Reddit |
+| **work** | Slack, Teams, Notion, Zoom, Figma, Trello |
+| **drive** | Google Drive, OneDrive, Dropbox, Proton Drive, Synology |
+| **banking** | Banques FR, PayPal, Lydia, N26, Revolut |
+| **crypto** | Binance, Kraken, Coinbase, Ledger, MetaMask |
+| **gov** | Impôts, CAF, Ameli, ANTS, France Connect |
+| **health** | Doctolib, Ameli, mutuelles, pharmacies |
+| **shopping** | Amazon, Fnac, Cdiscount, Leboncoin, LDLC |
+| **travel** | SNCF, Booking, Airbnb, Air France, BlaBlaCar |
+| **media** | Netflix, YouTube, Spotify, Twitch, Disney+, Canal+ |
+| **news** | Le Monde, Le Figaro, BFM, Numerama, 01net |
+| **admin** | GitHub, OVH, Cloudflare, AWS, Docker |
+| **ai** | ChatGPT, Claude, Mistral, Gemini, Midjourney |
 
-Each VM has:
-- Local dnsmasq listening on `127.0.0.1:53`
-- Whitelist of allowed domains
-- All other domains blocked (return `0.0.0.0`)
-- Firefox with DoH disabled and locked
-
-## Installation
-
-### Prerequisites
-
-- QubesOS 4.x
-- A Fedora or Debian based template
-
-### Quick Start
-
-1. Download and extract in dom0:
+## Quick Start
 
 ```bash
-# Download the zip file to dom0
 cd ~/Downloads
 unzip qubes-dns-filter.zip
 cd qubes-dns-filter
-```
-
-2. Run the setup:
-
-```bash
 ./setup.sh
 ```
 
-3. Follow the interactive prompts:
-   - Select base template
-   - Choose profiles (Email, Drive, or Both)
-   - Choose VM types (DispVM, AppVM, or Both)
+Follow the interactive prompts to select profiles and services.
+
+## Drive Sync VM (Client lourd)
+
+Pour une VM avec **clients lourds** et **stockage persistant** (Proton Drive, Synology Drive, Dropbox, rclone...) :
+
+```bash
+./setup-drive-sync.sh
+```
+
+Features:
+- Stockage configurable (50 GB à 1 TB+)
+- Clients installés: Proton Drive, Synology Drive, Dropbox, Nextcloud, MEGA
+- rclone pré-configuré pour Google Drive / OneDrive
+- Dossiers de sync dans `/home/user/Sync/`
+- Autostart des services
+
+## Messaging VM (Messageries instantanées)
+
+Pour une VM dédiée aux **messageries chiffrées** avec les clients installés :
+
+```bash
+./setup-messaging.sh
+```
+
+Applications disponibles:
+- **Privacy-focused**: Signal, Element/Matrix, Session, Olvid, Threema, Wire, Briar, SimpleX, Jami
+- **Popular**: Telegram, WhatsApp (web), Discord, Slack, Skype
+
+Features:
+- Clients natifs Linux installés
+- Intégration au menu Qubes (lancer directement Signal, Telegram, etc.)
+- DNS filtré: uniquement les domaines des messageries autorisés
+- Recommandations de sécurité incluses
 
 ## Usage
 
-### Launch Email DispVM
-
-From Qubes menu: `dvm-email` → `Firefox`
-
-Or from terminal:
 ```bash
-qvm-run --dispvm=dvm-email firefox
+# DispVM
+qvm-run --dispvm=dvm-banking firefox
+
+# AppVM
+qvm-run banking firefox
+
+# Test filtering
+qvm-run banking 'getent hosts wikipedia.org'      # Blocked: 0.0.0.0
+qvm-run banking 'getent hosts boursorama.com'     # Works: real IP
 ```
-
-### Launch Drive DispVM
-
-From Qubes menu: `dvm-drive` → `Firefox`
-
-Or from terminal:
-```bash
-qvm-run --dispvm=dvm-drive firefox
-```
-
-### Test Filtering
-
-```bash
-# Should be blocked (returns 0.0.0.0)
-qvm-run email 'getent hosts wikipedia.org'
-# Output: 0.0.0.0    wikipedia.org
-
-# Should work (returns real IPs)
-qvm-run email 'getent hosts mail.google.com'
-# Output: 142.250.x.x    mail.google.com
-```
-
-## Profiles
-
-### Email Profile
-
-Allows access to:
-- **Gmail/Google** - mail.google.com, accounts.google.com, etc.
-- **Outlook/Microsoft** - outlook.com, login.live.com, etc.
-- **ProtonMail** - proton.me, mail.proton.me, etc.
-
-### Drive Profile
-
-Allows access to:
-- **Google Drive** - drive.google.com, docs.google.com, etc.
-- **OneDrive** - onedrive.com, sharepoint.com, etc.
-- **Dropbox** - dropbox.com, dropboxusercontent.com, etc.
 
 ## Customization
 
-### Add Domains to Existing Profile
-
-Edit the config file:
-
-```bash
-nano lib/config/email.conf
-```
-
-Add new domains at the end:
+Add domains to `lib/config/services/<profile>.conf`:
 
 ```
-# My custom addition
-server=/example.com/9.9.9.9
-server=/api.example.com/9.9.9.9
+server=/mybank.fr/9.9.9.9
+server=/www.mybank.fr/9.9.9.9
 ```
 
-Then recreate the template:
-
-```bash
-./setup.sh
-```
-
-### Create a New Profile
-
-1. Copy an existing config:
-
-```bash
-cp lib/config/email.conf lib/config/banking.conf
-```
-
-2. Edit the whitelist:
-
-```bash
-nano lib/config/banking.conf
-```
-
-3. Update `setup.sh` to add the new profile option in the menu.
+Then re-run `./setup.sh`.
 
 ## Project Structure
 
 ```
 qubes-dns-filter/
-├── setup.sh                    # Main script (interactive menu)
+├── setup.sh                    # Main interactive script
 ├── lib/
-│   ├── common.sh              # Colors, utility functions
-│   ├── cleanup.sh             # VM deletion with multi-select
-│   ├── template.sh            # Template creation logic
+│   ├── common.sh              # Utility functions
+│   ├── cleanup.sh             # VM cleanup
+│   ├── template.sh            # Template creation
 │   └── config/
-│       ├── email.conf         # Email whitelist (dnsmasq)
-│       ├── drive.conf         # Drive whitelist (dnsmasq)
-│       └── firefox.json       # Firefox DoH policies
+│       ├── base.conf          # Base dnsmasq config
+│       ├── firefox.json       # Firefox DoH policies
+│       └── services/          # Service whitelists
+│           ├── gmail.conf
+│           ├── banking-fr.conf
+│           ├── shopping-fr.conf
+│           └── ...
 ```
 
-| File | Purpose |
-|------|---------|
-| `setup.sh` | Main entry point, menus |
-| `lib/common.sh` | Shared functions (colors, VM utils) |
-| `lib/cleanup.sh` | Interactive VM deletion |
-| `lib/template.sh` | Template creation logic |
-| `lib/config/*.conf` | dnsmasq whitelists |
-| `lib/config/firefox.json` | Firefox policies |
-
-## Security Features
-
-### DNS Filtering
+## Security
 
 - All domains blocked by default (`address=/#/0.0.0.0`)
-- Only whitelisted domains are forwarded to upstream DNS (Quad9)
-- Uses `no-resolv` to prevent reading system DNS
+- Only whitelisted domains forwarded to Quad9 (9.9.9.9)
+- DoH disabled and locked in Firefox
+- Config files immutable (chattr +i)
+- **Block in existing VMs**: Specialized domains can be blocked in your existing QubesOS VMs
 
-### DoH Prevention
+### Block Domains in Existing VMs
 
-**DNS level:**
-- Blocks known DoH providers (Cloudflare, Google, Quad9, etc.)
+After creating specialized VMs (email, banking, etc.), the script offers to block those domains in your existing QubesOS VMs like `work`, `personal`, `untrusted`.
 
-**Firefox level:**
-- `network.trr.mode = 5` (disabled)
-- `DNSOverHTTPS.Enabled = false`
-- `DNSOverHTTPS.Locked = true`
-- All settings locked (cannot be changed by user)
+Example workflow:
+1. You create a `banking` VM with Boursorama, BNP, PayPal
+2. Script asks: "Block these domains in existing VMs?"
+3. You select: `work`, `personal`
+4. Result: `work` and `personal` keep full internet access BUT cannot access banking sites
 
-### Immutable Configs
-
-All critical files are protected:
-
-```bash
-chattr +i /etc/dnsmasq.d/email-filter.conf
-chattr +i /etc/resolv.conf
-chattr +i /etc/firefox/policies/policies.json
-```
-
-Users cannot modify DNS settings, even with root access in AppVM.
-
-## Troubleshooting
-
-### DNS Not Working
-
-1. Check dnsmasq is running:
-```bash
-qvm-run -u root <vm> 'systemctl status dnsmasq'
-```
-
-2. Check resolv.conf:
-```bash
-qvm-run <vm> 'cat /etc/resolv.conf'
-# Should show: nameserver 127.0.0.1
-```
-
-3. Check nsswitch.conf:
-```bash
-qvm-run <vm> 'grep hosts /etc/nsswitch.conf'
-# Should show: hosts: files dns myhostname
-# Should NOT contain: resolve
-```
-
-### Domain Not Accessible
-
-1. Test DNS resolution:
-```bash
-qvm-run <vm> 'getent hosts example.com'
-```
-
-2. If blocked (returns 0.0.0.0), add domain to whitelist in `lib/config/<profile>.conf`
-
-3. Recreate the template:
-```bash
-./setup.sh
-```
-
-### VM Creation Fails
-
-If you see "Got empty response from qubesd":
-
-1. Wait a moment and retry
-2. Check template is fully shutdown:
-```bash
-qvm-ls <template-name>
-```
-
-## Upstream DNS
-
-By default, whitelisted domains are resolved via [Quad9](https://quad9.net/):
-- `9.9.9.9`
-- `149.112.112.112`
-
-To change, edit the `server=` lines at the top of the config files.
+This ensures true compartmentalization: your banking is ONLY accessible from the `banking` VM.
 
 ## License
 
-MIT License - Feel free to use and modify.
-
-## Contributing
-
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
-
-Ideas for contributions:
-- New profiles (banking, social media, etc.)
-- Support for other browsers (Chromium)
-- GUI for domain management
+MIT License
