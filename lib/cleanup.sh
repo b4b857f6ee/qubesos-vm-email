@@ -10,11 +10,11 @@
 # Find all filtered VMs (only our custom ones, not system)
 find_filtered_vms() {
     # DVM templates we created
-    EXISTING_DVM_TEMPLATES=$(qvm-ls --raw-list 2>/dev/null | grep -E "^dvm-(email|drive)" || true)
+    EXISTING_DVM_TEMPLATES=$(qvm-ls --raw-list 2>/dev/null | grep -E "^dvm-(email|drive|banking|shopping|social|media|travel|admin|health|gov|ai|crypto|news|work)" || true)
     # AppVMs we created
-    EXISTING_APPVMS=$(qvm-ls --raw-list 2>/dev/null | grep -E "^(email|drive)$" || true)
+    EXISTING_APPVMS=$(qvm-ls --raw-list 2>/dev/null | grep -E "^(email|drive|banking|shopping|social|media|travel|admin|health|gov|ai|crypto|news|work)$" || true)
     # Templates we created
-    EXISTING_TEMPLATES=$(qvm-ls --raw-list --class TemplateVM 2>/dev/null | grep -E "\-(email|drive)$" || true)
+    EXISTING_TEMPLATES=$(qvm-ls --raw-list --class TemplateVM 2>/dev/null | grep -E "\-(email|drive|banking|shopping|social|media|travel|admin|health|gov|ai|crypto|news|work)$" || true)
     
     export EXISTING_DVM_TEMPLATES EXISTING_APPVMS EXISTING_TEMPLATES
 }
@@ -118,7 +118,7 @@ interactive_cleanup() {
     # Delete in correct order: DVM templates first, then AppVMs, then Templates
     # First pass: DVM templates and AppVMs
     for vm in "${TO_DELETE[@]}"; do
-        if [[ ! "$vm" =~ \-(email|drive)$ ]]; then
+        if [[ ! "$vm" =~ \-(email|drive|banking|shopping|social|media|travel|admin|health|gov|ai|crypto|news|work)$ ]]; then
             remove_vm "$vm"
             # Also remove dom0 shortcuts for this VM
             rm -f "$desktop_dir/${vm}-"*.desktop 2>/dev/null
@@ -128,7 +128,7 @@ interactive_cleanup() {
     
     # Second pass: Templates
     for vm in "${TO_DELETE[@]}"; do
-        if [[ "$vm" =~ \-(email|drive)$ ]]; then
+        if [[ "$vm" =~ \-(email|drive|banking|shopping|social|media|travel|admin|health|gov|ai|crypto|news|work)$ ]]; then
             remove_vm "$vm"
         fi
     done
